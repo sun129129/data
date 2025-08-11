@@ -1,0 +1,55 @@
+# 워크플로우 이름
+name: API Data Fetch Pipeline
+
+# 워크플로우 실행 조건
+on:
+  # 1. 5분마다 자동으로 실행
+  schedule:
+    - cron: '*/5 * * * *'
+  # 2. main 브랜치에 코드가 push 될 때 실행
+  push:
+    branches:
+      - main
+  # 3. GitHub Actions 탭에서 수동으로 실행 가능하도록 설정
+  workflow_dispatch:
+
+# 실제 수행할 작업(들)
+jobs:
+  # build 라는 이름의 작업
+  build:
+    # 작업이 실행될 가상 서버 환경 지정 (최신 우분투)
+    runs-on: ubuntu-latest
+
+    # 작업의 단계들
+    steps:
+      # 1단계: GitHub 저장소의 코드를 가상 서버로 내려받음
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      # 2단계: API 데이터를 호출하고 파일로 저장
+      - name: Fetch API data and save to file
+        run: |
+          # 현재 시간의 '분'을 가져와 +1 계산
+          CURRENT_MINUTE=$(date +%M)
+          TARGET_ID=$(( (10#$CURRENT_MINUTE) + 1 ))
+          API_URL="https://jsonplaceholder.typicode.com/todos/$TARGET_ID"
+          
+          echo "Fetching data from $API_URL"
+          # curl 명령어로 API 호출 결과를 test.json 파일로 저장
+          # 이 파일은 가상 서버의 임시 공간(/tmp)에 생성됨
+          curl -s -o /tmp/test.json "$API_URL"
+
+      # 3단계: 생성된 파일 내용 확인 (로그 출력)
+      - name: Display content of test.json
+        run: |
+          echo "Content of /tmp/test.json:"
+          cat /tmp/test.json
+      
+      # 4단계: 생성된 파일을 'Artifact'로 업로드하여 다운로드 가능하게 만듦
+      - name: Upload test.json as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # 생성될 아티팩트의 이름
+          name: api-result
+          # 업로드할 파일의 경로
+          path: /tmp/test.json
